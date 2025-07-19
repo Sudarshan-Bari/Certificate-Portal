@@ -7,7 +7,7 @@ import { Download, Eye, FileText, Award } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { generateCertificatePDF } from '@/utils/pdfGenerator';
+import { generatePDFFromCertificate } from '@/utils/pdfGenerator';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -15,19 +15,28 @@ export const CertificateViewer = () => {
   const { user } = useAuth();
   const [viewingCertificate, setViewingCertificate] = useState<string | null>(null);
 
-  // Fetch user's approved applications (which are their certificates)
+  // Fetch user's certificates from the certificates table
   const { data: certificates, isLoading } = useQuery({
     queryKey: ['user-certificates', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
-      // Get approved applications which are essentially issued certificates
+      // Get certificates that belong to the user
       const { data, error } = await supabase
-        .from('certificate_applications')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'approved')
-        .order('approved_at', { ascending: false });
+        .from('certificates')
+        .select(`
+          *,
+          certificate_applications!inner(
+            user_id,
+            full_name,
+            father_name,
+            date_of_birth,
+            address,
+            purpose
+          )
+        `)
+        .eq('certificate_applications.user_id', user.id)
+        .order('issued_date', { ascending: false });
       
       if (error) {
         console.error('Error fetching certificates:', error);
@@ -39,20 +48,10 @@ export const CertificateViewer = () => {
     enabled: !!user?.id
   });
 
-  const handleDownloadCertificate = async (application: any) => {
+  const handleDownloadCertificate = async (certificate: any) => {
     try {
-      const pdf = generateCertificatePDF({
-        certificateNumber: application.application_id,
-        fullName: application.full_name,
-        fatherName: application.father_name,
-        dateOfBirth: application.date_of_birth,
-        address: application.address,
-        certificateType: application.certificate_type,
-        issuedDate: application.approved_at ? format(new Date(application.approved_at), 'dd/MM/yyyy') : format(new Date(), 'dd/MM/yyyy'),
-        digitalSignature: 'Digitally Signed by Revenue Department'
-      });
-      
-      pdf.save(`${application.certificate_type}_certificate_${application.application_id}.pdf`);
+      const pdf = generatePDFFromCertificate(certificate);
+      pdf.save(`${certificate.certificate_type}_certificate_${certificate.certificate_number}.pdf`);
       toast.success('Certificate downloaded successfully!');
     } catch (error) {
       console.error('Error downloading certificate:', error);
@@ -134,13 +133,13 @@ export const CertificateViewer = () => {
                     </Badge>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
-                    <p><span className="font-medium">Certificate No:</span> {cert.application_id}</p>
-                    <p><span className="font-medium">Issued to:</span> {cert.full_name}</p>
-                    <p><span className="font-medium">Issued on:</span> {cert.approved_at ? format(new Date(cert.approved_at), 'MMM dd, yyyy') : 'N/A'}</p>
+                    <p><span className="font-medium">Certificate No:</span> {cert.certificate_number}</p>
+                    <p><span className="font-medium">Issued to:</span> {cert.issued_to}</p>
+                    <p><span className="font-medium">Issued on:</span> {format(new Date(cert.issued_date), 'MMM dd, yyyy')}</p>
                     <p><span className="font-medium">Type:</span> {formatCertificateType(cert.certificate_type)}</p>
                   </div>
                   <div className="mt-2 text-sm text-gray-600">
-                    <p><span className="font-medium">Purpose:</span> {cert.purpose}</p>
+                    <p><span className="font-medium">Purpose:</span> {cert.certificate_applications?.purpose || 'N/A'}</p>
                   </div>
                 </div>
                 <div className="flex flex-col space-y-2 ml-4">
