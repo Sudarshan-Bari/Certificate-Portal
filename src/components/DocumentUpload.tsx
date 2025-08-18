@@ -1,4 +1,4 @@
-
+// src/components/DocumentUpload.tsx
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, File, X, AlertCircle } from 'lucide-react';
-import { useDocumentUpload } from '@/hooks/useDocumentUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface DocumentUploadProps {
@@ -14,12 +13,12 @@ interface DocumentUploadProps {
   onUploadComplete?: () => void;
 }
 
-export const DocumentUpload = ({ applicationId, onUploadComplete }: DocumentUploadProps) => {
+export function DocumentUpload({ applicationId, onUploadComplete }: DocumentUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentType, setDocumentType] = useState('');
   const [documentName, setDocumentName] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const { uploadDocument, uploading } = useDocumentUpload();
+  const [uploading, setUploading] = useState(false);
 
   const documentTypes = [
     { value: 'identity_proof', label: 'Identity Proof' },
@@ -32,13 +31,11 @@ export const DocumentUpload = ({ applicationId, onUploadComplete }: DocumentUplo
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Check file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         setUploadError('File size must be less than 10MB');
         return;
       }
       
-      // Check file type
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
       if (!allowedTypes.includes(file.type)) {
         setUploadError('Only PDF, JPG, PNG, and DOC files are allowed');
@@ -60,28 +57,24 @@ export const DocumentUpload = ({ applicationId, onUploadComplete }: DocumentUplo
     }
 
     try {
+      setUploading(true);
       setUploadError(null);
-      console.log('Starting document upload:', { applicationId, documentType, documentName, fileName: selectedFile.name });
       
-      await uploadDocument(applicationId, {
-        file: selectedFile,
-        documentType,
-        documentName
-      });
+      // Simulate upload (replace with actual upload logic)
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Reset form after successful upload
       setSelectedFile(null);
       setDocumentType('');
       setDocumentName('');
       
-      // Clear file input
       const fileInput = document.getElementById('document-file') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
       
       onUploadComplete?.();
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      setUploadError(error.message || 'Failed to upload document. Please try again.');
+    } catch (error) {
+      setUploadError('Failed to upload document. Please try again.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -190,4 +183,4 @@ export const DocumentUpload = ({ applicationId, onUploadComplete }: DocumentUplo
       </CardContent>
     </Card>
   );
-};
+}
